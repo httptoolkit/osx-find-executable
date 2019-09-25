@@ -24,27 +24,27 @@ const parsePlist = (plistData) => {
   return result;
 };
 
-let isSpotlightRunning = null; // null | Promise | true | false
+let isSpotlightAvailable = null; // null | Promise | true | false
 let spotlightAppIndex = null; // null | Promise | index
 
-function checkSpotlightRunning() {
-  if (typeof isSpotlightRunning === 'boolean') {
+function checkSpotlightAvailable() {
+  if (typeof isSpotlightAvailable === 'boolean') {
     return Promise.resolve(); // We've already checked
   }
 
-  if (isSpotlightRunning === null) {
-    isSpotlightRunning = new Promise((resolve, reject) => {
+  if (isSpotlightAvailable === null) {
+    isSpotlightAvailable = new Promise((resolve, reject) => {
       exec('mdutil -s /', (err, stdout) => {
         if (err) reject(err);
         else {
-          isSpotlightRunning = !stdout.includes('Indexing disabled');
+          isSpotlightAvailable = !stdout.includes('Indexing disabled');
           resolve();
         }
       });
     });
   }
 
-  return isSpotlightRunning;
+  return isSpotlightAvailable;
 }
 
 async function buildAppIndex() {
@@ -110,7 +110,7 @@ function getExecutablePath(appDir, plist) {
 }
 
 module.exports = (id, cb) => {
-  if (isSpotlightRunning === false) {
+  if (isSpotlightAvailable === false) {
     // If we know spotlight isn't running:
     findExecutableManually(id)
     .then((executablePath) => {
@@ -122,19 +122,31 @@ module.exports = (id, cb) => {
     // If spotlight is running, or we just haven't checked yet:
 
     exec(`mdfind "kMDItemCFBundleIdentifier=="${id}""`, (err, stdout) => {
-      if (err) return cb(err);
+      if (err) {
+        if (err.code === 127) {
+          // We can't call mdfind: we can't use spotlight
+          isSpotlightAvailable = false;
+          // Retry: this will now search manually instead
+          return module.exports(id, cb);
+        } else {
+          // Otherwise, continue as 'not found' (probably still throws, might successfully
+          // fall back to a manual search if spotlight is clearly disabled).
+          stdout = '';
+        }
+      }
+
       const path = stdout
         .trim()
         .split('\n')[0]; // If there are multiple results, use the first
 
       if (!path) {
-        return checkSpotlightRunning().then(() => {
-          if (!isSpotlightRunning) {
+        return checkSpotlightAvailable().then(() => {
+          if (!isSpotlightAvailable) {
             module.exports(id, cb);
           } else {
             return cb(new Error(`Not installed: ${id}`))
           }
-        });
+        }).catch(cb);
       }
 
       readFile(join(path, 'Contents', 'Info.plist')).then((raw) => {
