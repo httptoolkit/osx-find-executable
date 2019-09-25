@@ -123,7 +123,9 @@ module.exports = (id, cb) => {
 
     exec(`mdfind "kMDItemCFBundleIdentifier=="${id}""`, (err, stdout) => {
       if (err) return cb(err);
-      const path = stdout.trim();
+      const path = stdout
+        .trim()
+        .split('\n')[0]; // If there are multiple results, use the first
 
       if (!path) {
         return checkSpotlightRunning().then(() => {
