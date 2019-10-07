@@ -13,15 +13,16 @@ const parsePlist = (plistData) => {
   const originalError = console.error;
   console.warn = () => {};
   console.error = function (msg) {
-    if (msg.startsWith('[xmldom error]')) return;
+    if (msg && msg.startsWith('[xmldom error]')) return;
     else return originalError.apply(this, arguments);
   };
 
-  const result = rawParsePlist(plistData);
-
-  console.warn = originalWarn;
-  console.error = originalError;
-  return result;
+  try {
+    return rawParsePlist(plistData);
+  } finally {
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
 };
 
 let isSpotlightAvailable = null; // null | Promise | true | false
