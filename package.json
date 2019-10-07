@@ -1,6 +1,6 @@
 {
   "name": "@httptoolkit/osx-find-executable",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Find an app's executable by its bundle id",
   "repository": "httptoolkit/osx-find-executable",
   "license": "MIT",
