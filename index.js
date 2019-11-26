@@ -111,6 +111,11 @@ function getExecutablePath(appDir, plist) {
     return join(appDir, 'Contents', 'MacOS', plist.CFBundleExecutable)
 }
 
+exports.findExecutableInApp = async function findExecutableInApp(appDir) {
+    const plist = await getPlistData(appDir);
+    return getExecutablePath(appDir, plist);
+}
+
 exports.findExecutableById = async function findExecutableById(bundleId) {
     if (isSpotlightAvailable === false) {
         // If we already know for sure that spotlight isn't available:

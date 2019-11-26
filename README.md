@@ -8,6 +8,7 @@ This is a fork of https://github.com/juliangruber/osx-find-executable, which app
 
 Key differences:
 * This fork includes a fallback (manually searching the apps in /Applications) if Spotlight is disabled, instead of just claiming that all apps can't be found.
+* This fork can also find an executable given a path to an app folder, not only using bundle id.
 * This fork returns promises throughout, and doesn't use callbacks.
 
 ## Usage
@@ -31,6 +32,10 @@ $ npm install @httptoolkit/osx-find-executable
 ### findExecutableById(id)
 
 Takes a bundle id (like com.google.Chrome), finds the corresponding bundle on disk, and returns a promise for the path to the executable within.
+
+### findExecutableInApp(appPath)
+
+Takes a path to an app bundle (a .app directory, like /Applications/Google Chrome.app), and returns a promise for the path to the executable within.
 
 ## License
 
