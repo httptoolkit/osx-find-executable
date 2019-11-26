@@ -1,6 +1,6 @@
 {
   "name": "@httptoolkit/osx-find-executable",
-  "version": "1.1.2",
+  "version": "2.0.0",
   "description": "Find an app's executable by its bundle id",
   "repository": "httptoolkit/osx-find-executable",
   "main": "./index.js",
