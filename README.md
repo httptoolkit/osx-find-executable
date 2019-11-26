@@ -10,6 +10,7 @@ Key differences:
 * This fork includes a fallback (manually searching the apps in /Applications) if Spotlight is disabled, instead of just claiming that all apps can't be found.
 * This fork can also find an executable given a path to an app folder, not only using bundle id.
 * This fork returns promises throughout, and doesn't use callbacks.
+* This fork includes type definitions for TypeScript.
 
 ## Usage
 

@@ -3,6 +3,8 @@
   "version": "1.1.2",
   "description": "Find an app's executable by its bundle id",
   "repository": "httptoolkit/osx-find-executable",
+  "main": "./index.js",
+  "type": "./index.d.ts",
   "license": "MIT",
   "scripts": {
     "test": "tap test.js"
