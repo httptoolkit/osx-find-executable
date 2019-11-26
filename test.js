@@ -1,39 +1,31 @@
-const find = require('.')
-const test = require('tap').test
+const { findExecutableById } = require('.');
+const test = require('tap').test;
 
-test('find chrome', t => {
-  find('com.google.Chrome', (err, path) => {
-    t.error(err);
-    t.equal(path, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
-    t.end();
-  });
+test('find by id', async () => {
+    test('find chrome', async (t) => {
+        const path = await findExecutableById('com.google.Chrome');
+        t.equal(path, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
+    });
+
+
+    test('find chrome & FF in parallel', async (t) => {
+        await Promise.all([
+            findExecutableById('com.google.Chrome').then((path) => {
+                t.equal(path, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
+            }),
+            findExecutableById('org.mozilla.firefox').then((path) => {
+                t.equal(path, '/Applications/Firefox.app/Contents/MacOS/firefox');
+            })
+        ]);
+    });
+
+    test('find non-existent app', async (t) => {
+        try {
+            await findExecutableById('tech.httptoolkit.NonExistentApp');
+            t.fail('Should not find non-existent app');
+        } catch (err) {
+            t.equal(err.message, 'Not installed: tech.httptoolkit.NonExistentApp');
+        }
+    });
 });
 
-
-test('find chrome & FF in parallel', t => {
-  let waitingFor = 2;
-  const done = () => {
-    waitingFor = waitingFor - 1;
-    if (waitingFor === 0) t.end();
-  };
-
-  find('com.google.Chrome', (err, path) => {
-    t.error(err);
-    t.equal(path, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
-    done();
-  });
-
-  find('org.mozilla.firefox', (err, path) => {
-    t.error(err);
-    t.equal(path, '/Applications/Firefox.app/Contents/MacOS/firefox');
-    done();
-  });
-});
-
-test('find non-existent app', t => {
-  find('tech.httptoolkit.NonExistentApp', (err, path) => {
-    t.equal(err.message, 'Not installed: tech.httptoolkit.NonExistentApp');
-    t.equal(path, undefined)
-    t.end()
-  })
-});

@@ -1,4 +1,4 @@
-const exec = require('child_process').exec;
+const childProcess = require('child_process');
 const join = require('path').join;
 const rawParsePlist = require('plist').parse;
 const { promisify } = require('util');
@@ -6,155 +6,155 @@ const fs = require('fs');
 
 const readdir = promisify(fs.readdir);
 const readFile = promisify(fs.readFile);
+const exec = promisify(childProcess.exec);
 
 const parsePlist = (plistData) => {
-  // Wrap plist warning to silence all non-fatal xmldom errors:
-  const originalWarn = console.warn;
-  const originalError = console.error;
-  console.warn = () => {};
-  console.error = function (msg) {
-    if (msg && msg.startsWith('[xmldom error]')) return;
-    else return originalError.apply(this, arguments);
-  };
+    // Wrap plist warnings, to silence all non-fatal xmldom errors:
+    const originalWarn = console.warn;
+    const originalError = console.error;
+    console.warn = () => {};
+    console.error = function (msg) {
+        if (msg && msg.startsWith && msg.startsWith('[xmldom error]')) return;
+        else return originalError.apply(this, arguments);
+    };
 
-  try {
-    return rawParsePlist(plistData);
-  } finally {
-    console.warn = originalWarn;
-    console.error = originalError;
-  }
+    try {
+        return rawParsePlist(plistData);
+    } finally {
+        console.warn = originalWarn;
+        console.error = originalError;
+    }
 };
 
 let isSpotlightAvailable = null; // null | Promise | true | false
-let spotlightAppIndex = null; // null | Promise | index
+let spotlightAppIndex = null; // null | Promise | { bundleId -> plistData }
 
 function checkSpotlightAvailable() {
-  if (typeof isSpotlightAvailable === 'boolean') {
-    return Promise.resolve(); // We've already checked
-  }
+    if (typeof isSpotlightAvailable === 'boolean') {
+        return Promise.resolve(isSpotlightAvailable); // We've already checked
+    }
 
-  if (isSpotlightAvailable === null) {
-    isSpotlightAvailable = new Promise((resolve, reject) => {
-      exec('mdutil -s /', (err, stdout) => {
-        if (err) reject(err);
-        else {
-          isSpotlightAvailable = !stdout.includes('Indexing disabled');
-          resolve();
-        }
-      });
-    });
-  }
+    if (isSpotlightAvailable === null) {
+        // Check if indexing is enabled, and persist the ongoing check as a promise
+        // in isSpotlightAvailable, to avoid parallel checks.
+        isSpotlightAvailable = exec('mdutil -s /').then((result) => {
+            isSpotlightAvailable = !result.stdout.includes('Indexing disabled');
+            return isSpotlightAvailable;
+        });
+    }
 
-  return isSpotlightAvailable;
+    // Returns an ongoing check (which we either just started, or started earlier)
+    return isSpotlightAvailable;
 }
 
 async function buildAppIndex() {
-  const appDirs = await getApplicationFolders('/Applications');
+    const appDirs = await getApplicationFolders('/Applications');
 
-  const apps = await Promise.all(appDirs.map(async (appDir) => ({
-    plist: await getPlistData(appDir).catch(() => undefined),
-    appPath: appDir
-  })));
+    const apps = await Promise.all(appDirs.map(async (appDir) => ({
+        plist: await getPlistData(appDir).catch(() => undefined),
+        appPath: appDir
+    })));
 
-  const index = {};
-  apps.forEach((app) => {
-    if (app.plist && app.plist.CFBundleIdentifier && app.plist.CFBundleExecutable) {
-      index[app.plist.CFBundleIdentifier] = app; // If we do get a conflict, just use the last result
-    }
-  });
+    const index = {};
+    apps.forEach((app) => {
+        if (app.plist && app.plist.CFBundleIdentifier && app.plist.CFBundleExecutable) {
+            index[app.plist.CFBundleIdentifier] = app; // If we do get a conflict, just use the last result
+        }
+    });
 
-  return index;
+    return index;
 }
 
 async function findExecutableManually(bundleId) {
-  spotlightAppIndex = spotlightAppIndex || buildAppIndex();
+    spotlightAppIndex = spotlightAppIndex || buildAppIndex();
 
-  const matchingApp = (await spotlightAppIndex)[bundleId];
-  if (!matchingApp) return;
+    const matchingApp = (await spotlightAppIndex)[bundleId];
+    if (!matchingApp) return;
 
-  const { plist, appPath } = matchingApp;
-  return getExecutablePath(appPath, plist);
+    const { appPath, plist } = matchingApp;
+    return getExecutablePath(appPath, plist);
 }
 
 async function getApplicationFolders(root) {
-  try {
-    const fileEntries = await readdir(root, { withFileTypes: true });
-    const dirs = fileEntries.filter(e => e.isDirectory());
+    try {
+        const fileEntries = await readdir(root, { withFileTypes: true });
+        const dirs = fileEntries.filter(e => e.isDirectory());
 
-    const [appDirs, nonAppDirs] = dirs.reduce((acc, entry) => {
-      const path = join(root, entry.name);
-      if (entry.name.endsWith('.app')) {
-        acc[0].push(path);
-      } else {
-        acc[1].push(path);
-      }
-      return acc;
-    }, [[], []]);
+        const [appDirs, nonAppDirs] = dirs.reduce((acc, entry) => {
+            const path = join(root, entry.name);
+            if (entry.name.endsWith('.app')) {
+                acc[0].push(path);
+            } else {
+                acc[1].push(path);
+            }
+            return acc;
+        }, [[], []]);
 
-    return appDirs.concat(...await Promise.all(
-      // Recurse into any non-.app folders
-      nonAppDirs.map((dir) => getApplicationFolders(dir))
-    ));
-  } catch (e) {
-    console.log(e);
-    return [];
-  }
+        return appDirs.concat(
+            ...await Promise.all(
+                // Recurse into any non-.app folders
+                nonAppDirs.map((dir) => getApplicationFolders(dir))
+            )
+        );
+    } catch (e) {
+        console.log(e);
+        return [];
+    }
 }
 
 async function getPlistData(appDir) {
-  const data = await readFile(join(appDir, 'Contents', 'Info.plist'));
-  return parsePlist(data.toString());
+    const data = await readFile(join(appDir, 'Contents', 'Info.plist'), 'utf8');
+    return parsePlist(data);
 }
 
 function getExecutablePath(appDir, plist) {
-  return join(appDir, 'Contents', 'MacOS', plist.CFBundleExecutable)
+    return join(appDir, 'Contents', 'MacOS', plist.CFBundleExecutable)
 }
 
-module.exports = (id, cb) => {
-  if (isSpotlightAvailable === false) {
-    // If we know spotlight isn't running:
-    findExecutableManually(id)
-    .then((executablePath) => {
-      if (executablePath) cb(null, executablePath);
-      else cb(new Error(`Not installed: ${id}`));
-    })
-    .catch((err) => cb(err));
-  } else {
-    // If spotlight is running, or we just haven't checked yet:
-
-    exec(`mdfind "kMDItemCFBundleIdentifier=="${id}""`, (err, stdout) => {
-      if (err) {
-        if (err.code === 127) {
-          // We can't call mdfind: we can't use spotlight
-          isSpotlightAvailable = false;
-          // Retry: this will now search manually instead
-          return module.exports(id, cb);
+exports.findExecutableById = async function findExecutableById(bundleId) {
+    if (isSpotlightAvailable === false) {
+        // If we already know for sure that spotlight isn't available:
+        const executablePath = await findExecutableManually(bundleId)
+        if (executablePath) {
+            return executablePath;
         } else {
-          // Otherwise, continue as 'not found' (probably still throws, might successfully
-          // fall back to a manual search if spotlight is clearly disabled).
-          stdout = '';
+            throw Error(`Not installed: ${bundleId}`);
         }
-      }
+    }
 
-      const path = stdout
+    // If spotlight is available, or we just don't know yet:
+    let result = await exec(`mdfind "kMDItemCFBundleIdentifier=="${bundleId}""`).catch(e => e);
+
+    if (result instanceof Error) {
+        // Result is an error:
+
+        if (result.code === 127) {
+            // We can't call mdfind: we can't use spotlight
+            isSpotlightAvailable = false;
+            // Retry: this will now search manually instead
+            return exports.findExecutableById(bundleId);
+        }
+
+        // Otherwise, continue as 'not found' (probably still fails, but might successfully
+        // fall back to a manual search if spotlight is clearly disabled).
+        result = { stdout: '' };
+    }
+
+    const path = result
+        .stdout
         .trim()
         .split('\n')[0]; // If there are multiple results, use the first
 
-      if (!path) {
-        return checkSpotlightAvailable().then(() => {
-          if (!isSpotlightAvailable) {
-            module.exports(id, cb);
-          } else {
-            return cb(new Error(`Not installed: ${id}`))
-          }
-        }).catch(cb);
-      }
+    if (!path) {
+        if (!await checkSpotlightAvailable()) {
+            // If we now know it's not available, try again (i.e. try manually)
+            return exports.findExecutableById(bundleId);
+        } else {
+            throw new Error(`Not installed: ${bundleId}`);
+        }
+    }
 
-      readFile(join(path, 'Contents', 'Info.plist')).then((raw) => {
-        const plist = parsePlist(raw.toString());
-        cb(null, getExecutablePath(path, plist));
-      })
-      .catch((err) => cb(err));
-    })
-  }
+    const rawPlistContents = await readFile(join(path, 'Contents', 'Info.plist'), 'utf8');
+    const plist = parsePlist(rawPlistContents);
+    return getExecutablePath(path, plist);
 }
