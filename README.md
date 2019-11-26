@@ -15,12 +15,14 @@ Key differences:
 ## Usage
 
 ```js
-const { findOsxExecutable } = require('osx-find-executable')
+const { findExecutableById } = require('osx-find-executable')
 
-findOsxExecutable('com.google.Chrome').then((exec) => {
+findExecutableById('com.google.Chrome').then((exec) => {
   // => /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 });
 ```
+
+For more detailed examples, take a look at the tests in [test.js](https://github.com/httptoolkit/osx-find-executable/blob/master/test.js)
 
 ## Installation
 
