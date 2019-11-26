@@ -12,10 +12,16 @@ Key differences:
 * This fork returns promises throughout, and doesn't use callbacks.
 * This fork includes type definitions for TypeScript.
 
+## Installation
+
+```bash
+$ npm install @httptoolkit/osx-find-executable
+```
+
 ## Usage
 
 ```js
-const { findExecutableById } = require('osx-find-executable')
+const { findExecutableById } = require('@httptoolkit/osx-find-executable')
 
 findExecutableById('com.google.Chrome').then((exec) => {
   // => /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
@@ -24,11 +30,6 @@ findExecutableById('com.google.Chrome').then((exec) => {
 
 For more detailed examples, take a look at the tests in [test.js](https://github.com/httptoolkit/osx-find-executable/blob/master/test.js)
 
-## Installation
-
-```bash
-$ npm install @httptoolkit/osx-find-executable
-```
 
 ## API
 
