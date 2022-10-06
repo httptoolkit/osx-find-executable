@@ -1,8 +1,10 @@
 const childProcess = require('child_process');
 const join = require('path').join;
 const rawParsePlist = require('plist').parse;
+const bplist = require('bplist-parser');
 const { promisify } = require('util');
 const fs = require('fs');
+const { isBinary } = require('istextorbinary');
 
 const readdir = promisify(fs.readdir);
 const readFile = promisify(fs.readFile);
@@ -108,7 +110,7 @@ async function getPlistData(appDir) {
 }
 
 function getExecutablePath(appDir, plist) {
-    return join(appDir, 'Contents', 'MacOS', plist.CFBundleExecutable)
+    return join(appDir, 'Contents', 'MacOS', plist?.CFBundleExecutable)
 }
 
 exports.findExecutableInApp = async function findExecutableInApp(appDir) {
@@ -159,7 +161,15 @@ exports.findExecutableById = async function findExecutableById(bundleId) {
         }
     }
 
-    const rawPlistContents = await readFile(join(path, 'Contents', 'Info.plist'), 'utf8');
-    const plist = parsePlist(rawPlistContents);
+    let plist;
+    const plistFilePath = join(path, 'Contents', 'Info.plist')
+    // sometimes this file is of type `Apple binary property list` instead of normal ASCII text
+    if (isBinary(null, fs.readFileSync(plistFilePath))) {
+        const plistContents = await bplist.parseFile(plistFilePath)
+        plist = plistContents[0]
+    } else {
+        const rawPlistContents = await readFile(plistFilePath, 'utf8');
+        plist = parsePlist(rawPlistContents);
+    }
     return getExecutablePath(path, plist);
 }
